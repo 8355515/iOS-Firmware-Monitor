@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# monitor.py - 爱思助手固件签名监控增强版（带目录修正与日志输出）
+# monitor.py - 爱思助手固件签名监控 v3
+# 特性：汇总多设备通知、无固件时发送统一提示、保留防重复通知逻辑、包含更新时间
 
 import json
 import os
@@ -7,8 +8,9 @@ import requests
 import time
 from packaging import version
 from pathlib import Path
+from datetime import datetime
 
-# 确保工作目录是脚本所在目录（防止 GitHub Actions 工作路径异常）
+# 确保脚本工作目录为脚本所在目录
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 MIN_VERSION = version.parse("26.0")
@@ -18,7 +20,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CHAT_ID = os.getenv("TG_CHAT_ID")
 
 HEADERS = {
-    "User-Agent": "ios-firmware-monitor/2.0 (+https://github.com)"
+    "User-Agent": "ios-firmware-monitor/3.0 (+https://github.com)"
 }
 
 def send_telegram(msg: str):
@@ -29,7 +31,7 @@ def send_telegram(msg: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"}
     try:
-        resp = requests.post(url, data=payload, timeout=10, headers=HEADERS)
+        resp = requests.post(url, data=payload, timeout=15, headers=HEADERS)
         if resp.status_code != 200:
             print(f"[Telegram] 非 200 响应: {resp.status_code} {resp.text}")
             return False
@@ -70,7 +72,7 @@ def get_all_devices() -> dict:
     return devices
 
 def get_signed_firmwares(device: str) -> list:
-    """获取设备签名固件（仅保留 iOS < 26.0 且 isSign == 1）"""
+    """获取设备签名固件（仅保留 iOS < MIN_VERSION 且 isSign == 1）"""
     url = f"https://api.i4.cn/firmware/deviceData?device={device}"
     try:
         r = requests.get(url, timeout=15, headers=HEADERS)
@@ -91,8 +93,27 @@ def get_signed_firmwares(device: str) -> list:
             continue
     return out
 
+def build_report(devices_results: dict, timestamp: str) -> str:
+    """构建汇总报告消息（Markdown）"""
+    title = "📢 iOS 固件签名监控报告"
+    lines = [title, "", f"更新时间：{timestamp}", ""]
+    any_open = False
+    for dev, info in sorted(devices_results.items(), key=lambda x: x[0]):
+        name = info.get("name", dev)
+        versions = info.get("new_versions", [])
+        if versions:
+            any_open = True
+            ver_list = ", ".join([f"iOS {v}" for v in sorted(versions, key=lambda s: version.parse(s))])
+            lines.append(f"✅ {name}（{dev}） — 可降级固件：{ver_list}")
+        else:
+            lines.append(f"⚠️ {name}（{dev}） — 未发现可降级固件")
+    lines.append("")
+    if not any_open:
+        lines = [title, "", f"⚠️ 当前未发现任何可降级固件通道", "", f"更新时间：{timestamp}"]
+    return "\n".join(lines)
+
 def main():
-    print("🚀 ios-firmware-monitor v2 启动")
+    print("🚀 ios-firmware-monitor v3 启动")
     print(f"当前工作目录: {os.getcwd()}")
 
     # 确保记录文件存在
@@ -108,30 +129,27 @@ def main():
 
     last = load_last()
     new_last = {}
-    updates = []
+    devices_results = {}
 
     for idx, (dev, name) in enumerate(devices.items(), start=1):
         print(f"[{idx}/{len(devices)}] 检查: {name} ({dev})")
         firmwares = get_signed_firmwares(dev)
         old = set(last.get(dev, []))
         new = sorted(set(firmwares) - old, key=lambda s: version.parse(s))
-        if new:
-            msg = f"📢 *{name}*（{dev}）检测到新签名固件：\n" + "\n".join(f"- iOS {v}" for v in new)
-            print(msg)
-            send_telegram(msg)
-            updates.append(msg)
-        else:
-            print(f"✅ {name} 无新签名固件")
+        devices_results[dev] = {"name": name, "new_versions": new, "all_signed": firmwares}
         new_last[dev] = firmwares
-        time.sleep(1.0)
+        time.sleep(0.8)
 
+    # 构建并发送汇总消息
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report = build_report(devices_results, timestamp)
+    print("---- Report ----")
+    print(report)
+    send_telegram(report)
+
+    # 仅在脚本结束后一次性保存记录（防止中间多次写）
     save_last(new_last)
     print("📂 保存 last_notified.json 完成")
 
-    if updates:
-        print(f"✅ 共推送 {len(updates)} 条更新")
-    else:
-        print("😴 没有新的签名固件变动")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
