@@ -2,8 +2,11 @@ name: iOS Firmware Monitor
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 * * * *"   # 每小时运行一次
   workflow_dispatch:
+
+permissions:
+  contents: write          # 允许 Actions 推送代码回仓库
 
 jobs:
   check_firmware:
@@ -12,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -32,4 +37,3 @@ jobs:
         with:
           commit_message: "Update last firmware record"
           file_pattern: last_firmware.json
-
