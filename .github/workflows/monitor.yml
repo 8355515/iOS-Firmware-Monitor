@@ -1,39 +1,30 @@
-name: iOS Firmware Monitor
+name: 爱思 iOS 固件签名监控
 
 on:
   schedule:
-    - cron: "0 * * * *"   # 每小时运行一次
+    - cron: "0 */3 * * *"  # 每3小时运行一次
   workflow_dispatch:
 
-permissions:
-  contents: write          # 允许 Actions 推送代码回仓库
-
 jobs:
-  check_firmware:
+  monitor:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
+      - uses: actions/checkout@v4
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-
-      - name: Install dependencies
+          python-version: "3.11"
+      - name: Install deps
         run: pip install -r requirements.txt
-
-      - name: Run firmware monitor
+      - name: Run monitor
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python firmware_monitor.py
-
-      - name: Save state
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Update last firmware record"
-          file_pattern: last_firmware.json
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python monitor.py
+      - name: Commit last_notified.json if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add last_notified.json
+          git commit -m "Update firmware records" || echo "No changes to commit"
+          git push
