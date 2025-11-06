@@ -1,4 +1,6 @@
 
+# iOS Firmware Monitor v1
+
 import requests, json, os
 from datetime import datetime
 
@@ -78,7 +80,7 @@ def send_telegram_message(text):
         print(f"❌ Telegram 发送异常: {e}")
 
 def main():
-    print("🚀 iOS Firmware Monitor v4 启动")
+    print("🚀 iOS Firmware Monitor v1 启动")
     summary = []
     updated = False
 
