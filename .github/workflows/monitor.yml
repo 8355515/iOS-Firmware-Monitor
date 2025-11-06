@@ -1,38 +1,38 @@
-name: 爱思 iOS 固件签名监控
+name: 爱思 iOS 固件签名监控 (v2)
 
 on:
   schedule:
     - cron: "0 */1 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write  # ✅ 允许 GitHub Actions 推送文件
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # ✅ 使用自动内置 token
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install deps
         run: pip install -r requirements.txt
-
       - name: Debug current files
         run: ls -R
-
       - name: Run monitor script
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: python monitor.py
-
       - name: Ensure last_notified.json exists
         run: |
           if [ ! -f last_notified.json ]; then
             echo "{}" > last_notified.json
           fi
-
       - name: Commit last_notified.json if changed
         run: |
           git config user.name "github-actions[bot]"
