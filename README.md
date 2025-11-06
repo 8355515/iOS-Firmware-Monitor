@@ -106,19 +106,12 @@ on:
 3. 选择左侧工作流 `iOS Firmware Monitor`  
 4. 点击 “Run workflow” → 确认执行  
 
-执行完成后，如果配置正确，你会在 Telegram 收到推送：
 
-```
-📱 iPhone15,2 发现新固件：18.7
-🔗 下载链接：https://updates.cdn-apple.com/...
-```
-
----
 
 ## 🧩 自定义设置
 
 ### 📱 修改监控设备
-在 `firmware_monitor.py` 中找到：
+在 `monitor.py` 中找到：
 
 ```python
 DEVICE_LIST = ["iPhone15,2", "iPhone14,2"]
@@ -156,18 +149,6 @@ new_versions = firmwares
 
 ---
 
-## 🧑‍💻 本地调试
-
-在本地测试：
-
-```bash
-pip install -r requirements.txt
-export TELEGRAM_BOT_TOKEN="你的BotToken"
-export TELEGRAM_CHAT_ID="你的ChatID"
-python firmware_monitor.py
-```
-
----
 
 ## 🕒 Cron 时间说明
 
